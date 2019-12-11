@@ -4,4 +4,6 @@
     <exclude domain="database"/>
     <exclude domain="external"/>
     <include domain="file" path="cloudsettings.json"/>
+    <exclude domain="file" path="error" tools:ignore="FullBackupContent"/>
+    <exclude domain="file" path="appcenter" tools:ignore="FullBackupContent"/>
 </full-backup-content>
