@@ -24,8 +24,6 @@ public class CloudSettingsPlugin extends CordovaPlugin {
 
     public static CloudSettingsPlugin instance = null;
     static CordovaWebView webView;
-
-    CallbackContext callbackContext;
     static BackupManager bm;
 
     /**
@@ -44,39 +42,35 @@ public class CloudSettingsPlugin extends CordovaPlugin {
     }
 
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
-        this.callbackContext = callbackContext;
-        boolean success = false;
+        boolean success = true;
         try {
             if (action.equals("enableDebug")) {
-                setDebug(true);
-                sendPluginResult(new PluginResult(PluginResult.Status.OK));
+                setDebug(true, callbackContext);
             }else if (action.equals("saveBackup")) {
-                success = saveBackup(args);
-            } else {
+                saveBackup(args, callbackContext);
+            }else if (action.equals("saveBackup")) {
+                saveBackup(args, callbackContext);
+            }else {
                 handleError("Invalid action: " + action);
+                success = false;
             }
         } catch (Exception e) {
             handleException(e);
-        }
-        return success;
-    }
-
-    protected void setDebug(boolean enabled) {
-        debugEnabled = enabled;
-        d("debug: " + String.valueOf(enabled));
-    }
-
-    protected boolean saveBackup(JSONArray args) throws JSONException {
-        boolean success = true;
-        try {
-            d("Requesting Backup");
-            bm.dataChanged();
-            sendPluginResult(new PluginResult(PluginResult.Status.OK));
-        } catch (Exception e) {
-            handleException(e, "Requesting Backup");
             success = false;
         }
         return success;
+    }
+
+    protected void setDebug(boolean enabled, CallbackContext callbackContext) {
+        debugEnabled = enabled;
+        d("debug: " + String.valueOf(enabled));
+        sendPluginResultOk(callbackContext);
+    }
+
+    protected void saveBackup(JSONArray args, CallbackContext callbackContext) throws JSONException {
+        d("Requesting Backup");
+        bm.dataChanged();
+        sendPluginResultOk(callbackContext);
     }
 
     protected static void handleException(Exception e, String description) {
@@ -118,13 +112,12 @@ public class CloudSettingsPlugin extends CordovaPlugin {
         return this.cordova.getActivity();
     }
 
-    protected void sendPluginResult(PluginResult pluginResult) {
-        if (callbackContext != null) {
-            callbackContext.sendPluginResult(pluginResult);
-            callbackContext = null;
-        }else{
-            handleError("No callback context is available");
-        }
+    protected void sendPluginResultOk(CallbackContext callbackContext) {
+        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
+    }
+
+    protected void sendPluginResultError(String errorMessage, CallbackContext callbackContext) {
+        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, errorMessage));
     }
 
     protected static void onRestore() {

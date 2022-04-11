@@ -36,6 +36,12 @@ var resolveFilepath = function(){
     filePath = dirPath + FILE_NAME;
 };
 
+var getFileReader = function() {
+    const fileReader = new FileReader();
+    const zoneOriginalInstance = fileReader["__zone_symbol__originalInstance"];
+    return zoneOriginalInstance || fileReader;
+};
+
 var fail = function (onError, operation, error) {
     if(typeof error === "object"){
         error = JSON.stringify(error);
@@ -67,7 +73,7 @@ cloudsettings.load = function(onSuccess, onError){
             exclusive: false
         }, function (fileEntry) {
             fileEntry.file(function (file) {
-                var reader = new FileReader();
+                var reader = new getFileReader();
                 reader.onloadend = function() {
                     try{
                         var data = JSON.parse(this.result);

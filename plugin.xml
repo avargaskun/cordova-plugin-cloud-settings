@@ -2,7 +2,7 @@
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
         xmlns:android="http://schemas.android.com/apk/res/android"
         id="cordova-plugin-cloud-settings"
-        version="1.0.4">
+        version="2.0.0">
 
     <name>cordova-plugin-cloud-settings</name>
     <description>A Cordova plugin for Android &amp; iOS to persist user settings in cloud storage across devices and installs.</description>
@@ -26,17 +26,11 @@
             </feature>
         </config-file>
 
-        <preference name="ANDROID_BACKUP_SERVICE_KEY" />
-
         <dependency id="cordova-plugin-file" version="*" />
 
         <js-module src="www/android/cloudsettings.js" name="CloudSettingsPlugin">
             <clobbers target="cordova.plugin.cloudsettings" />
         </js-module>
-
-        <config-file target="AndroidManifest.xml" parent="/manifest/application">
-            <meta-data android:name="com.google.android.backup.api_key" android:value="$ANDROID_BACKUP_SERVICE_KEY" />
-        </config-file>
 
         <edit-config file="AndroidManifest.xml" target="/manifest/application" mode="merge">
             <application

@@ -14,6 +14,7 @@ public class BackupAgentHelper extends android.app.backup.BackupAgentHelper {
 
     @Override
     public void onCreate() {
+        CloudSettingsPlugin.d("Created");
         FileBackupHelper helper = new FileBackupHelper(this, FILE_NAME);
         addHelper(FILES_BACKUP_KEY, helper);
     }
@@ -33,14 +34,23 @@ public class BackupAgentHelper extends android.app.backup.BackupAgentHelper {
 
     @Override
     public void onRestore(BackupDataInput data, int appVersionCode, ParcelFileDescriptor newState) throws IOException {
-
         synchronized (CloudSettingsPlugin.sDataLock) {
             try {
                 CloudSettingsPlugin.d("Restore invoked: " + data.toString());
-                CloudSettingsPlugin.onRestore();
                 super.onRestore(data, appVersionCode, newState);
             } catch (Exception e) {
                 CloudSettingsPlugin.handleException(e, "when restore invoked");
+            }
+        }
+    }
+
+    @Override
+    public void onRestoreFinished(){
+        synchronized (CloudSettingsPlugin.sDataLock) {
+            try {
+                CloudSettingsPlugin.onRestore();
+            } catch (Exception e) {
+                CloudSettingsPlugin.handleException(e, "when restore finished invoked");
             }
         }
     }
