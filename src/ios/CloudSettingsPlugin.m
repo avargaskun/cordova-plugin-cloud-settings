@@ -51,15 +51,29 @@ static NSString*const javascriptNamespace = @"cordova.plugin.cloudsettings";
         @try {
             NSString* sNewData = [command.arguments objectAtIndex:0];
 
+            // Check iCloud availability before attempting to write
+            id ubiquityToken = [[NSFileManager defaultManager] ubiquityIdentityToken];
+            if (ubiquityToken == nil) {
+                [self sendPluginError:@"synchronize failed: iCloud not available (user may not be signed in)" :command];
+                return;
+            }
+
+            // Check data size against the 1MB per-key iCloud KV Store limit
+            NSUInteger dataSize = [sNewData lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
+            if (dataSize > 1024 * 1024) {
+                [self sendPluginError:[NSString stringWithFormat:@"synchronize failed: data too large (%lu bytes, max 1048576)", (unsigned long)dataSize] :command];
+                return;
+            }
+
             // Store new settings values
             [[NSUbiquitousKeyValueStore defaultStore] setString:sNewData forKey:KEY];
-            
+
             // sync memory values to disk (in preparation for next iCloud sync)
             BOOL success = [[NSUbiquitousKeyValueStore defaultStore] synchronize];
             if (success){
                 [self sendPluginSuccess:command];
             }else{
-                [self sendPluginError:@"synchronize failed" :command];
+                [self sendPluginError:[NSString stringWithFormat:@"synchronize failed: NSUbiquitousKeyValueStore returned NO (data size: %lu bytes)", (unsigned long)dataSize] :command];
             }
         }@catch (NSException *exception) {
             [self handlePluginException:exception :command];
