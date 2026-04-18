@@ -20,7 +20,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -93,8 +92,8 @@ public class CloudSettingsPlugin extends CordovaPlugin {
                 try {
                     AuthorizationResult result = authorize();
                     if (!result.hasResolution()) {
-                        String token = getValidAccessToken();
-                        String email = DriveHelper.fetchEmail(token);
+                        String token = getAccessToken();
+                        String email = fetchEmailWithRetry(token);
                         JSONObject json = new JSONObject();
                         json.put("authorized", true);
                         json.put("email", email);
@@ -137,8 +136,8 @@ public class CloudSettingsPlugin extends CordovaPlugin {
                                 @Override
                                 public void run() {
                                     try {
-                                        String token = getValidAccessToken();
-                                        String email = DriveHelper.fetchEmail(token);
+                                        String token = getAccessToken();
+                                        String email = fetchEmailWithRetry(token);
                                         d("connect: fetched email=" + email);
                                         JSONObject json = new JSONObject();
                                         json.put("email", email);
@@ -195,8 +194,8 @@ public class CloudSettingsPlugin extends CordovaPlugin {
                 @Override
                 public void run() {
                     try {
-                        String token = getValidAccessToken();
-                        String email = DriveHelper.fetchEmail(token);
+                        String token = getAccessToken();
+                        String email = fetchEmailWithRetry(token);
                         d("onActivityResult: fetched email=" + email);
                         JSONObject json = new JSONObject();
                         json.put("email", email);
@@ -267,7 +266,7 @@ public class CloudSettingsPlugin extends CordovaPlugin {
             @Override
             public void run() {
                 try {
-                    String token = getValidAccessToken();
+                    String token = getAccessToken();
 
                     // Note: Do NOT write to the local file here. The local
                     // cloudsettings.json is a legacy artifact from the old
@@ -301,7 +300,7 @@ public class CloudSettingsPlugin extends CordovaPlugin {
             @Override
             public void run() {
                 try {
-                    String token = getValidAccessToken();
+                    String token = getAccessToken();
 
                     List<String> fileIds = DriveHelper.listFiles(token, FILE_NAME);
                     if (!fileIds.isEmpty()) {
@@ -330,7 +329,7 @@ public class CloudSettingsPlugin extends CordovaPlugin {
                         callbackContext.success(0);
                         return;
                     }
-                    String token = getValidAccessToken();
+                    String token = getAccessToken();
 
                     List<String> fileIds = DriveHelper.listFiles(token, FILE_NAME);
                     callbackContext.success(fileIds.isEmpty() ? 0 : 1);
@@ -375,43 +374,40 @@ public class CloudSettingsPlugin extends CordovaPlugin {
     }
 
     /**
-     * Get a valid access token, with retry logic to handle stale cached tokens.
-     * After revokeAuth(), Play Services may cache the old (now invalid) token.
-     * If the first token gets a 401 from Google APIs, we clear it from the cache
-     * via GoogleAuthUtil.clearToken() and call authorize() again to force a fresh one.
-     * Must be called from a background thread.
+     * Get an access token from Play Services. Calls authorize() and returns
+     * the token if the user has already granted consent. Throws if consent
+     * is required (hasResolution). Must be called from a background thread.
      */
-    private String getValidAccessToken() throws Exception {
+    private String getAccessToken() throws Exception {
         AuthorizationResult result = authorize();
         if (result.hasResolution()) {
             throw new Exception("Not authorized");
         }
         String token = result.getAccessToken();
         cachedAccessToken = token;
+        return token;
+    }
 
-        // Validate the token with a lightweight API call
+    /**
+     * Fetch the user's email, retrying once on 401 (stale cached token).
+     * After revokeAuth(), Play Services may briefly cache the old token.
+     * If fetchEmail gets a 401, we clear the cache and re-authorize.
+     * Must be called from a background thread.
+     */
+    private String fetchEmailWithRetry(String token) throws Exception {
         try {
-            DriveHelper.fetchEmail(token);
-            return token;
+            return DriveHelper.fetchEmail(token);
         } catch (IOException e) {
             if (e.getMessage() != null && e.getMessage().contains("401")) {
-                // Token is stale — clear from Play Services cache and retry
-                d("getValidAccessToken: token got 401, clearing and retrying");
+                d("fetchEmailWithRetry: token got 401, clearing and retrying");
                 try {
                     com.google.android.gms.auth.GoogleAuthUtil.clearToken(
                             cordova.getActivity(), token);
                 } catch (Exception clearEx) {
-                    d("getValidAccessToken: clearToken failed: " + clearEx.getMessage());
+                    d("fetchEmailWithRetry: clearToken failed: " + clearEx.getMessage());
                 }
-                // Re-authorize to get a fresh token
-                result = authorize();
-                if (result.hasResolution()) {
-                    throw new Exception("Not authorized after retry");
-                }
-                token = result.getAccessToken();
-                cachedAccessToken = token;
-                d("getValidAccessToken: got new token after clearing cache");
-                return token;
+                String freshToken = getAccessToken();
+                return DriveHelper.fetchEmail(freshToken);
             }
             throw e;
         }
@@ -419,14 +415,6 @@ public class CloudSettingsPlugin extends CordovaPlugin {
 
     private boolean isFireOS() {
         return "Amazon".equalsIgnoreCase(android.os.Build.MANUFACTURER);
-    }
-
-    private void writeLocalFile(String content) throws IOException {
-        File file = new File(getActivity().getFilesDir(), FILE_NAME);
-        FileOutputStream fos = new FileOutputStream(file);
-        fos.write(content.getBytes("UTF-8"));
-        fos.flush();
-        fos.close();
     }
 
     private Activity getActivity() {
