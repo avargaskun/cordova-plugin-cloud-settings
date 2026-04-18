@@ -45,6 +45,7 @@ public class DriveHelper {
             conn.setRequestProperty("Authorization", "Bearer " + accessToken);
 
             int responseCode = conn.getResponseCode();
+            Log.d(TAG, "fetchEmail: HTTP " + responseCode);
             if (responseCode != 200) {
                 throw new IOException("fetchEmail failed with HTTP " + responseCode + ": " + readErrorStream(conn));
             }
@@ -54,8 +55,10 @@ public class DriveHelper {
             JSONObject user = json.getJSONObject("user");
             return user.getString("emailAddress");
         } catch (IOException e) {
+            Log.e(TAG, "fetchEmail: " + e.getMessage());
             throw e;
         } catch (Exception e) {
+            Log.e(TAG, "fetchEmail: " + e.getMessage());
             throw new IOException("fetchEmail error: " + e.getMessage(), e);
         } finally {
             if (conn != null) conn.disconnect();
@@ -80,6 +83,7 @@ public class DriveHelper {
             conn.setRequestProperty("Authorization", "Bearer " + accessToken);
 
             int responseCode = conn.getResponseCode();
+            Log.d(TAG, "listFiles: HTTP " + responseCode);
             if (responseCode != 200) {
                 throw new IOException("listFiles failed with HTTP " + responseCode + ": " + readErrorStream(conn));
             }
@@ -92,10 +96,13 @@ public class DriveHelper {
             for (int i = 0; i < files.length(); i++) {
                 fileIds.add(files.getJSONObject(i).getString("id"));
             }
+            Log.d(TAG, "listFiles: found " + fileIds.size() + " file(s)");
             return fileIds;
         } catch (IOException e) {
+            Log.e(TAG, "listFiles: " + e.getMessage());
             throw e;
         } catch (Exception e) {
+            Log.e(TAG, "listFiles: " + e.getMessage());
             throw new IOException("listFiles error: " + e.getMessage(), e);
         } finally {
             if (conn != null) conn.disconnect();
@@ -119,11 +126,17 @@ public class DriveHelper {
             conn.setRequestProperty("Authorization", "Bearer " + accessToken);
 
             int responseCode = conn.getResponseCode();
+            Log.d(TAG, "downloadFile: HTTP " + responseCode);
             if (responseCode != 200) {
                 throw new IOException("downloadFile failed with HTTP " + responseCode + ": " + readErrorStream(conn));
             }
 
-            return readStream(conn);
+            String content = readStream(conn);
+            Log.d(TAG, "downloadFile: downloaded " + content.length() + " bytes");
+            return content;
+        } catch (IOException e) {
+            Log.e(TAG, "downloadFile: " + e.getMessage());
+            throw e;
         } finally {
             if (conn != null) conn.disconnect();
         }
@@ -163,16 +176,21 @@ public class DriveHelper {
             os.close();
 
             int responseCode = conn.getResponseCode();
+            Log.d(TAG, "createFile: HTTP " + responseCode);
             if (responseCode != 200 && responseCode != 201) {
                 throw new IOException("createFile failed with HTTP " + responseCode + ": " + readErrorStream(conn));
             }
 
             String responseBody = readStream(conn);
             JSONObject json = new JSONObject(responseBody);
-            return json.getString("id");
+            String fileId = json.getString("id");
+            Log.d(TAG, "createFile: created id=" + fileId);
+            return fileId;
         } catch (IOException e) {
+            Log.e(TAG, "createFile: " + e.getMessage());
             throw e;
         } catch (Exception e) {
+            Log.e(TAG, "createFile: " + e.getMessage());
             throw new IOException("createFile error: " + e.getMessage(), e);
         } finally {
             if (conn != null) conn.disconnect();
@@ -212,12 +230,15 @@ public class DriveHelper {
             os.close();
 
             int responseCode = conn.getResponseCode();
+            Log.d(TAG, "updateFile: HTTP " + responseCode + " for id=" + fileId);
             if (responseCode != 200) {
                 throw new IOException("updateFile failed with HTTP " + responseCode + ": " + readErrorStream(conn));
             }
         } catch (IOException e) {
+            Log.e(TAG, "updateFile: " + e.getMessage());
             throw e;
         } catch (Exception e) {
+            Log.e(TAG, "updateFile: " + e.getMessage());
             throw new IOException("updateFile error: " + e.getMessage(), e);
         } finally {
             if (conn != null) conn.disconnect();

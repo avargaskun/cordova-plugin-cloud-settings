@@ -44,6 +44,7 @@ public class CloudSettingsPlugin extends CordovaPlugin {
 
         // Silent auth attempt — no UI, fire-and-forget
         if (!isFireOS()) {
+            d("initialize: attempting silent auth");
             cordova.getThreadPool().execute(new Runnable() {
                 @Override
                 public void run() {
@@ -51,18 +52,23 @@ public class CloudSettingsPlugin extends CordovaPlugin {
                         AuthorizationResult result = authorize();
                         if (!result.hasResolution()) {
                             cachedAccessToken = result.getAccessToken();
-                            d("Silent auth succeeded on init");
+                            d("initialize: silent auth succeeded");
+                        } else {
+                            d("initialize: silent auth needs resolution, skipping");
                         }
                     } catch (Exception e) {
-                        d("Silent auth skipped: " + e.getMessage());
+                        d("initialize: silent auth failed: " + e.getMessage());
                     }
                 }
             });
+        } else {
+            d("initialize: FireOS detected, skipping silent auth");
         }
     }
 
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
+        d("execute: " + action);
         try {
             switch (action) {
                 case "checkAuth":      checkAuth(callbackContext); break;
@@ -94,16 +100,19 @@ public class CloudSettingsPlugin extends CordovaPlugin {
                     if (!result.hasResolution()) {
                         String token = getAccessToken();
                         String email = fetchEmailWithRetry(token);
+                        d("checkAuth: authorized, email=" + email);
                         JSONObject json = new JSONObject();
                         json.put("authorized", true);
                         json.put("email", email);
                         callbackContext.success(json.toString());
                     } else {
+                        d("checkAuth: not authorized (needs resolution)");
                         JSONObject json = new JSONObject();
                         json.put("authorized", false);
                         callbackContext.success(json.toString());
                     }
                 } catch (Exception e) {
+                    d("checkAuth: failed: " + e.getMessage());
                     try {
                         JSONObject json = new JSONObject();
                         json.put("authorized", false);
@@ -220,6 +229,7 @@ public class CloudSettingsPlugin extends CordovaPlugin {
                     // Get a fresh token to revoke
                     AuthorizationResult result = authorize();
                     String token = result.hasResolution() ? cachedAccessToken : result.getAccessToken();
+                    d("revokeAuth: hasResolution=" + result.hasResolution() + ", hasToken=" + (token != null));
                     if (token != null) {
                         // 1. Invalidate the token in Play Services' local cache.
                         //    Without this, authorize() returns the same stale token
@@ -248,9 +258,11 @@ public class CloudSettingsPlugin extends CordovaPlugin {
                         }
                     }
                     cachedAccessToken = null;
+                    d("revokeAuth: success");
                     callbackContext.success();
                 } catch (Exception e) {
                     cachedAccessToken = null;
+                    e("revokeAuth: failed: " + e.getMessage());
                     callbackContext.error("Revoke failed: " + e.getMessage());
                 }
             }
@@ -279,16 +291,18 @@ public class CloudSettingsPlugin extends CordovaPlugin {
                     List<String> fileIds = DriveHelper.listFiles(token, FILE_NAME);
                     if (!fileIds.isEmpty()) {
                         DriveHelper.updateFile(token, fileIds.get(0), FILE_NAME, jsonString);
-                        d("Updated existing Drive file");
+                        d("save: updated existing Drive file");
                     } else {
                         DriveHelper.createFile(token, FILE_NAME, jsonString);
-                        d("Created new Drive file");
+                        d("save: created new Drive file");
                     }
 
                     callbackContext.success();
                 } catch (IOException e) {
+                    e("save: network error: " + e.getMessage());
                     callbackContext.error("Network error: " + e.getMessage());
                 } catch (Exception e) {
+                    e("save: failed: " + e.getMessage());
                     callbackContext.error("Save failed: " + e.getMessage());
                 }
             }
@@ -305,13 +319,17 @@ public class CloudSettingsPlugin extends CordovaPlugin {
                     List<String> fileIds = DriveHelper.listFiles(token, FILE_NAME);
                     if (!fileIds.isEmpty()) {
                         String content = DriveHelper.downloadFile(token, fileIds.get(0));
+                        d("load: downloaded backup (" + content.length() + " bytes)");
                         callbackContext.success(content);
                     } else {
+                        d("load: no backup found on Drive");
                         callbackContext.error("No backup found");
                     }
                 } catch (IOException e) {
+                    e("load: network error: " + e.getMessage());
                     callbackContext.error("Network error: " + e.getMessage());
                 } catch (Exception e) {
+                    e("load: failed: " + e.getMessage());
                     callbackContext.error("Load failed: " + e.getMessage());
                 }
             }
@@ -325,16 +343,17 @@ public class CloudSettingsPlugin extends CordovaPlugin {
                 try {
                     AuthorizationResult result = authorize();
                     if (result.hasResolution()) {
-                        // Not yet authorized — return false
+                        d("exists: not authorized, returning false");
                         callbackContext.success(0);
                         return;
                     }
                     String token = getAccessToken();
 
                     List<String> fileIds = DriveHelper.listFiles(token, FILE_NAME);
+                    d("exists: " + (fileIds.isEmpty() ? "no backup found" : "backup exists"));
                     callbackContext.success(fileIds.isEmpty() ? 0 : 1);
                 } catch (Exception e) {
-                    // On network error, return false
+                    d("exists: failed (" + e.getMessage() + "), returning false");
                     callbackContext.success(0);
                 }
             }
