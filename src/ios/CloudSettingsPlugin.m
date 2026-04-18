@@ -39,12 +39,6 @@ static NSString*const javascriptNamespace = @"cordova.plugin.cloudsettings";
 #pragma mark - Plugin API
 /********************************/
 
--(void)enableDebug:(CDVInvokedUrlCommand*)command{
-    self.debugEnabled = true;
-    [self d:@"Debug enabled"];
-    [self sendPluginSuccess:command];
-}
-
 -(void)save:(CDVInvokedUrlCommand *)command
 {
     [self.commandDelegate runInBackground:^{
@@ -82,7 +76,7 @@ static NSString*const javascriptNamespace = @"cordova.plugin.cloudsettings";
 }
 
 
--(void)load:(CDVInvokedUrlCommand *)command  
+-(void)load:(CDVInvokedUrlCommand *)command
 {
     [self.commandDelegate runInBackground:^{
         @try {
@@ -143,10 +137,9 @@ static NSString*const javascriptNamespace = @"cordova.plugin.cloudsettings";
 - (void)pluginInitialize {
     @try {
         [super pluginInitialize];
-        self.debugEnabled = false;
-        [[NSNotificationCenter defaultCenter] addObserver:self 
+        [[NSNotificationCenter defaultCenter] addObserver:self
             selector:@selector(cloudNotification:)
-            name:NSUbiquitousKeyValueStoreDidChangeExternallyNotification 
+            name:NSUbiquitousKeyValueStoreDidChangeExternallyNotification
             object:[NSUbiquitousKeyValueStore defaultStore]];
     }@catch (NSException *exception) {
         [self e:exception.reason];
@@ -258,38 +251,22 @@ static NSString*const javascriptNamespace = @"cordova.plugin.cloudsettings";
 
 - (void)d: (NSString*)msg
 {
-    if(self.debugEnabled){
-        NSLog(@"%@ DEBUG: %@", LOG_TAG, msg);
-        NSString* jsString = [NSString stringWithFormat:@"console.log(\"%@: %@\")", LOG_TAG, [self escapeDoubleQuotes:msg]];
-        [self executeGlobalJavascript:jsString];
-    }
+    NSLog(@"%@ DEBUG: %@", LOG_TAG, msg);
 }
 
 - (void)i: (NSString*)msg
 {
-    if(self.debugEnabled){
-        NSLog(@"%@ INFO: %@", LOG_TAG, msg);
-        NSString* jsString = [NSString stringWithFormat:@"console.info(\"%@: %@\")", LOG_TAG, [self escapeDoubleQuotes:msg]];
-        [self executeGlobalJavascript:jsString];
-    }
+    NSLog(@"%@ INFO: %@", LOG_TAG, msg);
 }
 
 - (void)w: (NSString*)msg
 {
-    if(self.debugEnabled){
-        NSLog(@"%@ WARN: %@", LOG_TAG, msg);
-        NSString* jsString = [NSString stringWithFormat:@"console.warn(\"%@: %@\")", LOG_TAG, [self escapeDoubleQuotes:msg]];
-        [self executeGlobalJavascript:jsString];
-    }
+    NSLog(@"%@ WARN: %@", LOG_TAG, msg);
 }
 
 - (void)e: (NSString*)msg
 {
     NSLog(@"%@ ERROR: %@", LOG_TAG, msg);
-    if(self.debugEnabled){
-        NSString* jsString = [NSString stringWithFormat:@"console.error(\"%@: %@\")", LOG_TAG, [self escapeDoubleQuotes:msg]];
-        [self executeGlobalJavascript:jsString];
-    }
 }
 
 - (NSString*)escapeDoubleQuotes: (NSString*)str

@@ -27,91 +27,74 @@ var merge = function () {
     return destination;
 };
 
-var fail = function (onError, operation, error) {
-    if(typeof error === "object"){
-        error = JSON.stringify(error);
-    }
-    var msg = "CloudSettingsPlugin ERROR " + operation + ": " + error;
-    if (onError){
-        onError(msg);
-    }else{
-        console.error(msg);
-    }
-};
-
 var cloudsettings = {};
 
-cloudsettings.enableDebug = function(onSuccess) {
-    return cordova.exec(onSuccess,
-        null,
-        'CloudSettingsPlugin',
-        'enableDebug',
-        []);
+// iOS has no Drive auth — always authorized (iCloud is device-level)
+cloudsettings.checkAuth = function() {
+    return Promise.resolve({ authorized: true });
 };
 
-cloudsettings.load = function(onSuccess, onError){
-    cordova.exec(function(sData){
-        try{
-            var oData = JSON.parse(sData);
-        }catch(e){
-            return fail(onError, "parsing stored settings to JSON", e.message);
-        }
-        try{
-            onSuccess(oData);
-        }catch(e){
-            return fail(onError, "calling success callback", e.message);
-        }
-    }, fail.bind(this, onError, "loading stored settings"), 'CloudSettingsPlugin', 'load', []);
+cloudsettings.connect = function() {
+    return Promise.resolve({});
 };
 
-cloudsettings.save = function(settings, onSuccess, onError, overwrite){
-    if(typeof settings !== "object" || typeof settings.length !== "undefined") throw "settings must be a key/value object!";
+cloudsettings.hasLocalFile = function() {
+    return Promise.resolve(false);
+};
 
-    var doSave = function(){
+cloudsettings.deleteLocalFile = function() {
+    return Promise.resolve();
+};
+
+cloudsettings.revokeAuth = function() {
+    return Promise.resolve();
+};
+
+cloudsettings.load = function() {
+    return new Promise(function(resolve, reject) {
+        cordova.exec(function(sData) {
+            try { resolve(JSON.parse(sData)); }
+            catch(e) { reject("Error parsing stored settings: " + e.message); }
+        }, reject, 'CloudSettingsPlugin', 'load', []);
+    });
+};
+
+cloudsettings.save = function(settings, overwrite) {
+    if(typeof settings !== "object" || typeof settings.length !== "undefined")
+        throw "settings must be a key/value object!";
+
+    var doSave = function() {
         settings.timestamp = (new Date()).valueOf();
-        try{
-            var data = JSON.stringify(settings);
-        }catch(e){
-            return fail(onError, "convert settings to JSON", e.message);
-        }
-        cordova.exec(function(){
-            try{
-                onSuccess(settings);
-            }catch(e){
-                return fail(onError, "calling success callback", e.message);
-            }
-        }, fail.bind(this, onError, "saving settings"), 'CloudSettingsPlugin', 'save', [data]);
+        var data = JSON.stringify(settings);
+        return new Promise(function(resolve, reject) {
+            cordova.exec(function() { resolve(settings); }, reject,
+                'CloudSettingsPlugin', 'save', [data]);
+        });
     };
 
-    if(overwrite){
-        doSave();
-    }else{
-        cloudsettings.exists(function(exists){
-            if(exists){
-                // Load stored settings and merge them with new settings
-                cloudsettings.load(function(stored){
+    if(overwrite) {
+        return doSave();
+    } else {
+        return cloudsettings.exists().then(function(exists) {
+            if(exists) {
+                return cloudsettings.load().then(function(stored) {
                     settings = merge(stored, settings);
-                    doSave();
-                }, onError);
-            }else{
-                doSave();
+                    return doSave();
+                });
+            } else {
+                return doSave();
             }
         });
     }
-    
 };
 
-cloudsettings.exists = function(onSuccess){
-    cordova.exec(onSuccess, null, 'CloudSettingsPlugin', 'exists', []);
+cloudsettings.exists = function() {
+    return new Promise(function(resolve, reject) {
+        cordova.exec(resolve, reject, 'CloudSettingsPlugin', 'exists', []);
+    });
 };
 
-cloudsettings.onRestore = function(fn){
-    onRestoreFn = fn;
-};
-
-cloudsettings._onRestore = function(){
-    onRestoreFn();
-};
+cloudsettings.onRestore = function(fn) { onRestoreFn = fn; };
+cloudsettings._onRestore = function() { onRestoreFn(); };
 
 module.exports = cloudsettings;
-

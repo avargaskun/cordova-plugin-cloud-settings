@@ -1,6 +1,3 @@
-var FILE_NAME = "cloudsettings.json";
-var dirPath, filePath;
-
 var onRestoreFn = function(){};
 
 var merge = function () {
@@ -30,136 +27,92 @@ var merge = function () {
     return destination;
 };
 
-var resolveFilepath = function(){
-    if(filePath) return;
-    dirPath = cordova.file.dataDirectory;
-    filePath = dirPath + FILE_NAME;
-};
-
-var getFileReader = function() {
-    const fileReader = new FileReader();
-    const zoneOriginalInstance = fileReader["__zone_symbol__originalInstance"];
-    return zoneOriginalInstance || fileReader;
-};
-
-var fail = function (onError, operation, error) {
-    if(typeof error === "object"){
-        error = JSON.stringify(error);
-    }
-    var msg = "CloudSettingsPlugin ERROR " + operation + ": " + error;
-    if (onError){
-        onError(msg);
-    }else{
-        console.error(msg);
-    }
-};
-
 var cloudsettings = {};
 
-cloudsettings.enableDebug = function(onSuccess) {
-    return cordova.exec(onSuccess,
-        null,
-        'CloudSettingsPlugin',
-        'enableDebug',
-        []);
+cloudsettings.checkAuth = function() {
+    return new Promise(function(resolve, reject) {
+        cordova.exec(function(resultJson) {
+            try { resolve(JSON.parse(resultJson)); }
+            catch(e) { reject("Error parsing checkAuth result: " + e.message); }
+        }, reject, 'CloudSettingsPlugin', 'checkAuth', []);
+    });
 };
 
-cloudsettings.load = function(onSuccess, onError){
-    resolveFilepath();
-
-    window.resolveLocalFileSystemURL(dirPath, function (dirEntry) {
-        dirEntry.getFile(FILE_NAME, {
-            create: false,
-            exclusive: false
-        }, function (fileEntry) {
-            fileEntry.file(function (file) {
-                var reader = new getFileReader();
-                reader.onloadend = function() {
-                    try{
-                        var data = JSON.parse(this.result);
-                    }catch(e){
-                        return fail(onError, "parsing file contents to JSON", e.message);
-                    }
-                    try{
-                        onSuccess(data);
-                    }catch(e){
-                        return fail(onError, "calling success callback", e.message);
-                    }
-                };
-                reader.readAsText(file);
-            }, fail.bind(this, onError, "getting file handle"));
-        }, fail.bind(this, onError, "getting file entry"));
-    }, fail.bind(this, onError, "resolving storage directory"));
+cloudsettings.connect = function() {
+    return new Promise(function(resolve, reject) {
+        cordova.exec(function(resultJson) {
+            try { resolve(JSON.parse(resultJson)); }
+            catch(e) { reject("Error parsing connect result: " + e.message); }
+        }, reject, 'CloudSettingsPlugin', 'connect', []);
+    });
 };
 
-cloudsettings.save = function(settings, onSuccess, onError, overwrite){
-    if(typeof settings !== "object" || typeof settings.length !== "undefined") throw "settings must be a key/value object!";
+cloudsettings.load = function() {
+    return new Promise(function(resolve, reject) {
+        cordova.exec(function(sData) {
+            try { resolve(JSON.parse(sData)); }
+            catch(e) { reject("Error parsing stored settings: " + e.message); }
+        }, reject, 'CloudSettingsPlugin', 'load', []);
+    });
+};
 
-    resolveFilepath();
+cloudsettings.save = function(settings, overwrite) {
+    if(typeof settings !== "object" || typeof settings.length !== "undefined")
+        throw "settings must be a key/value object!";
 
-    var doSave = function(){
+    var doSave = function() {
         settings.timestamp = (new Date()).valueOf();
-        try{
-            var data = JSON.stringify(settings);
-        }catch(e){
-            return fail(onError, "converting settings to JSON", e.message);
-        }
-    
-        window.resolveLocalFileSystemURL(dirPath, function (dirEntry) {
-            dirEntry.getFile(FILE_NAME, {
-                create: true,
-                exclusive: false
-            }, function (fileEntry) {
-                fileEntry.createWriter(function (writer) {
-                    writer.onwriteend = function (evt) {
-                        cordova.exec(function(){
-                            try{
-                                onSuccess(settings);
-                            }catch(e){
-                                fail(onError, "calling success callback",e.message);
-                            }
-                        }, fail.bind(this, onError, "requesting backup"), 'CloudSettingsPlugin', 'saveBackup', []);
-    
-                    };
-                    writer.write(data);
-                }, fail.bind(this, onError, "creating file writer"));
-            }, fail.bind(this, onError, "getting file entry"));
-        }, fail.bind(this, onError, "resolving storage directory"));
+        var data = JSON.stringify(settings);
+        return new Promise(function(resolve, reject) {
+            cordova.exec(function() { resolve(settings); }, reject,
+                'CloudSettingsPlugin', 'save', [data]);
+        });
     };
 
-    if(overwrite){
-        doSave();
-    }else{
-        cloudsettings.exists(function(exists){
-            if(exists){
-                // Load stored settings and merge them with new settings
-                cloudsettings.load(function(stored){
+    if(overwrite) {
+        return doSave();
+    } else {
+        return cloudsettings.exists().then(function(exists) {
+            if(exists) {
+                return cloudsettings.load().then(function(stored) {
                     settings = merge(stored, settings);
-                    doSave();
-                }, onError);
-            }else{
-                doSave();
+                    return doSave();
+                });
+            } else {
+                return doSave();
             }
         });
     }
 };
 
-cloudsettings.exists = function(onSuccess){
-    resolveFilepath();
-    window.resolveLocalFileSystemURL(filePath, function() {
-        onSuccess(true);
-    }, function(){
-        onSuccess(false);
+cloudsettings.exists = function() {
+    return new Promise(function(resolve, reject) {
+        cordova.exec(function(result) { resolve(!!result); }, reject,
+            'CloudSettingsPlugin', 'exists', []);
     });
 };
 
-cloudsettings.onRestore = function(fn){
-    onRestoreFn = fn;
+cloudsettings.hasLocalFile = function() {
+    return new Promise(function(resolve, reject) {
+        cordova.exec(function(result) { resolve(!!result); }, reject,
+            'CloudSettingsPlugin', 'hasLocalFile', []);
+    });
 };
 
-cloudsettings._onRestore = function(){
-    onRestoreFn();
+cloudsettings.deleteLocalFile = function() {
+    return new Promise(function(resolve, reject) {
+        cordova.exec(resolve, reject, 'CloudSettingsPlugin', 'deleteLocalFile', []);
+    });
 };
+
+// Test-only: revokes Google Drive OAuth grant so consent bottom sheet reappears
+cloudsettings.revokeAuth = function() {
+    return new Promise(function(resolve, reject) {
+        cordova.exec(resolve, reject, 'CloudSettingsPlugin', 'revokeAuth', []);
+    });
+};
+
+cloudsettings.onRestore = function(fn) { onRestoreFn = fn; };
+cloudsettings._onRestore = function() { onRestoreFn(); };
 
 module.exports = cloudsettings;
-

@@ -5,12 +5,9 @@
 #import <Foundation/Foundation.h>
 #import <Cordova/CDV.h>
 
-@interface CloudSettingsPlugin : CDVPlugin 
-
-@property (nonatomic) BOOL debugEnabled;
+@interface CloudSettingsPlugin : CDVPlugin
 
 // Plugin API
--(void)enableDebug:(CDVInvokedUrlCommand*)command;
 -(void)save:(CDVInvokedUrlCommand *)command;
 -(void)load:(CDVInvokedUrlCommand *)command;
 -(void)exists:(CDVInvokedUrlCommand *)command;

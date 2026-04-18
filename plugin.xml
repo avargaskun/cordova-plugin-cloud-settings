@@ -26,15 +26,12 @@
             </feature>
         </config-file>
 
-        <dependency id="cordova-plugin-file" version="*" />
-
         <js-module src="www/android/cloudsettings.js" name="CloudSettingsPlugin">
             <clobbers target="cordova.plugin.cloudsettings" />
         </js-module>
 
-        <resource-file src="src/android/backup_rules.xml" target="res/xml/backup_rules.xml" />
         <source-file src="src/android/CloudSettingsPlugin.java" target-dir="src/cordova/plugin/cloudsettings" />
-        <source-file src="src/android/BackupAgentHelper.java" target-dir="src/cordova/plugin/cloudsettings" />
+        <source-file src="src/android/DriveHelper.java" target-dir="src/cordova/plugin/cloudsettings" />
     </platform>
 
     <platform name="ios">
