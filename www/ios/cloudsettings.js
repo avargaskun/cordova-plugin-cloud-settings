@@ -90,7 +90,8 @@ cloudsettings.save = function(settings, overwrite) {
 
 cloudsettings.exists = function() {
     return new Promise(function(resolve, reject) {
-        cordova.exec(resolve, reject, 'CloudSettingsPlugin', 'exists', []);
+        cordova.exec(function(result) { resolve(!!result); }, reject,
+            'CloudSettingsPlugin', 'exists', []);
     });
 };
 
