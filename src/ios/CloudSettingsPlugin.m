@@ -45,11 +45,14 @@ static NSString*const javascriptNamespace = @"cordova.plugin.cloudsettings";
         @try {
             NSString* sNewData = [command.arguments objectAtIndex:0];
 
-            // Check iCloud availability before attempting to write
+            // Log iCloud availability (for diagnostics) but do NOT block the save.
+            // NSUbiquitousKeyValueStore works as a local store even when
+            // ubiquityIdentityToken is nil (e.g. simulator, or iCloud KVS
+            // capability missing from provisioning profile). Blocking on this
+            // token prevented saves from working in many valid scenarios.
             id ubiquityToken = [[NSFileManager defaultManager] ubiquityIdentityToken];
             if (ubiquityToken == nil) {
-                [self sendPluginError:@"synchronize failed: iCloud not available (user may not be signed in)" :command];
-                return;
+                [self w:@"ubiquityIdentityToken is nil — iCloud sync may not work, but local KVS write will proceed"];
             }
 
             // Check data size against the 1MB per-key iCloud KV Store limit
